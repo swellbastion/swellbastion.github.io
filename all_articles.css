@@ -1,0 +1,35 @@
+@import url(https://fonts.googleapis.com/css?family=Lato:400,400italic,900);
+
+body {
+  margin: 59px 0 0 0;
+  font-family: 'Lato';
+}
+
+h1 {
+  font-size: 45px;
+  font-weight: 900;
+}
+
+h1, p {
+  padding: 7px 22px;
+  margin: 0 auto;
+  max-width: 600px;
+}
+
+@media (max-width: 473px) {
+  h1 {
+    font-size: 35px;
+  }
+}
+
+@media (max-width: 357px) {
+  h1 {
+    font-size: 30px;
+  }
+}
+
+@media (max-width: 312px) {
+  h1 {
+    font-size: 25px;
+  }
+}
