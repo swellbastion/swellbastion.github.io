@@ -1,3 +1,8 @@
+if (!localStorage.safariMessage && navigator.userAgent.toLowerCase().indexOf('safari') != -1 && navigator.userAgent.toLowerCase().indexOf('chrome') == -1) {
+  alert('hello my dear safari user, if the music doesnt play try refreshing')
+  localStorage.safariMessage = 'true'
+}
+
 blockPositions = [
   [4, 2],
   [10, 2],
