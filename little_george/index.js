@@ -150,6 +150,8 @@ function create() {
   var soundKeys = []
   for (var key in sounds) soundKeys.push(key)
   game.add.text(-200, 0, 'arrows: move\nr: reset')
+  var rKey = game.input.keyboard.addKey(Phaser.Keyboard.R);
+  rKey.onDown.add(resetGame)
   game.sound.setDecodedCallback(soundKeys, onAudioReady)
 }
 
@@ -290,11 +292,7 @@ function onPlayerCollision(body) {
       setTimeout(function() {
         cowboy.body.moveLeft(400)
         cowboy.body.moveUp(400)
-        setTimeout(function() {
-          killAllSprites()
-          createSprites()
-          dead = false
-        }, 700)
+        setTimeout(resetGame, 700)
       }, 700)
     }
     else if (Math.abs(cowboy.x - body.x) - 10 > Math.abs(cowboy.y - body.y) && !dead) {
@@ -310,4 +308,10 @@ function onPlayerCollision(body) {
     }
 
   }
+}
+
+function resetGame() {
+  killAllSprites()
+  createSprites()
+  dead = false
 }
