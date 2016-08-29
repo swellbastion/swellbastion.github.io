@@ -1,0 +1,353 @@
+<canvas width=480 height=480 style=cursor:none></canvas>
+
+<script>
+
+canvas = document.querySelector('canvas')
+ctx = canvas.getContext('2d')
+mapSize = 32
+blockSize = canvas.width / mapSize
+sheepStartingHealth = 5
+lastTickTime = Date.now()
+tickNumber = 0
+sheeps = []
+sheepDirections = []
+sheepHealths = []
+grassRegrowth = []
+sheepKillsRemaining = 16
+requiredSheeps = 0
+gameState = 'playing'
+
+ctx.fillStyle = 'blue'
+ctx.font = '16px monospace'
+ctx.fillText('loading', 20, 30)
+setupAudio()
+
+function setupGame() {
+  generateMap()
+  spawnSheep()
+  spawnSheep()
+  spawnSheep()
+  canvas.onmousedown = dig
+  canvas.onmousemove = function(event) {
+    if (window.mouseDown) dig(event)
+    mousePosition = [event.offsetX, event.offsetY]
+  }
+  onmousedown = function() { mouseDown = true }
+  onmouseup = function() { mouseDown = false }
+  requestAnimationFrame(render)
+}
+
+function generateMap() {
+  var amountOfRivers = 10
+  var rivers = []
+  for (var i = 0; i < amountOfRivers; i++) {
+    rivers[i] = [[randomInteger(mapSize), randomInteger(mapSize)]]
+    growRiver(rivers[i])
+  }
+  map = []
+  for (var row = 0; row < mapSize; row++) {
+    map[row] = []
+    for (var column = 0; column < mapSize; column++) map[row][column] = 'grass'
+  }
+  for (i in map) grassRegrowth[i] = []
+  for (i in rivers)
+    blockLoop:
+    for (var block in rivers  [i]) {
+      var block = rivers[i][block]
+      for (var axis in block)
+        if (block[axis] < 0 || block[axis] > mapSize - 1) continue blockLoop
+      map[block[0]][block[1]] = 'river'
+    }
+}
+
+function randomInteger(range) {
+  return Math.floor(Math.random() * range)
+}
+
+function growRiver(river) {
+  var riverLength = 32
+  var direction = randomInteger(4)
+  for (var i = 0; i < riverLength; i++) {
+    if (randomInteger(2) == 0) direction = randomInteger(4)
+    switch (direction) {
+      case 0:
+        river.push([river[i][0], river[i][1] - 1])
+        break
+      case 1:
+        river.push([river[i][0] + 1, river[i][1]])
+        break
+      case 2:
+        river.push([river[i][0], river[i][1] + 1])
+        break
+      case 3:
+        river.push([river[i][0] - 1, river[i][1]])
+    }
+  }
+}
+
+function render() {
+  requestAnimationFrame(render)
+
+  if (gameState == 'playing') {
+    for (var row in map)
+      for (var column in map[row]) {
+        var block = map[row][column]
+        switch (block) {
+          case 'river':
+            ctx.fillStyle = '#274680'
+            break
+          case 'dirt':
+            ctx.fillStyle = '#85692c'
+            break
+          case 'grass':
+            ctx.fillStyle = 'green'
+        }
+        ctx.fillRect(row * blockSize, column * blockSize, blockSize, blockSize)
+      }
+
+    renderStats()
+    for (var i in sheeps) drawSheep(i)
+    renderCursor()
+
+    var timeBetweenTicks = 1000
+    if (Date.now() >= lastTickTime + timeBetweenTicks) {
+      lastTickTime = Date.now()
+      tick()
+    }
+  }
+
+  else if (gameState == 'gameOver') {
+    ctx.fillStyle = '#444444'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = 'white'
+    ctx.font = '16px monospace'
+    ctx.fillText('game over ' + gameOverReason, 20, 30)
+    renderCursor()
+  }
+
+}
+
+function dig(event) {
+  var column = Math.floor(event.offsetX / blockSize)
+  var row = Math.floor(event.offsetY / blockSize)
+  if (blockIsNextToRiver(column, row) && map[column][row] != 'river' || map[column][row] == 'grass') playSound(digSoundBuffer)
+  if (blockIsNextToRiver(column, row)) map[column][row] = 'river'
+  else map[column][row] = 'dirt'
+}
+
+function blockIsNextToRiver(column, row) {
+  if (
+    map[column][row - 1] == 'river' ||
+    map[column + 1] && map[column + 1][row] == 'river' ||
+    map[column][row + 1] == 'river' ||
+    map[column - 1] && map[column - 1][row] == 'river'
+  ) return true
+}
+
+function spawnSheep() {
+  var mapSide = randomInteger(4)
+  var positionNumber = randomInteger(mapSize)
+  switch (mapSide) {
+    case 0:
+      var sheep = [positionNumber, 0]
+      var sheepDirection = 2
+      break
+    case 1:
+      sheep = [mapSize - 1, positionNumber]
+      sheepDirection = 3
+      break
+    case 2:
+      sheep = [positionNumber, mapSize - 1]
+      sheepDirection = 0
+      break
+    case 3:
+      sheep = [0, positionNumber]
+      sheepDirection = 1
+  }
+  if (map[sheep[0]][sheep[1]] != 'river') {
+    sheeps.push(sheep)
+    sheepDirections.push(sheepDirection)
+    sheepHealths.push(sheepStartingHealth)
+  }
+}
+
+function tick() {
+  aSheepDied = false
+  var numberOfSheeps = sheeps.length
+  for (var i in sheeps) updateSheep(i)
+  if (aSheepDied) playSound(sheepDieSoundBuffer)
+  spawnSheep()
+  if (tickNumber % 8 == 0) requiredSheeps++
+  updateGrassRegrowth()
+  checkIfGameOver()
+  tickNumber++
+}
+
+function updateSheep(i) {
+  if (randomInteger(7) == 0) sheepDirections[i] = randomInteger(4)
+  var sheepDirection = sheepDirections[i]
+  if (randomInteger(3) == 0) sheepDirection = randomInteger(4)
+  var newSheepPosition = sheeps[i].slice()
+  switch (sheepDirection) {
+    case 0:
+      newSheepPosition[1]--
+      break
+    case 1:
+      newSheepPosition[0]++
+      break
+    case 2:
+      newSheepPosition[1]++
+      break
+    case 3:
+      newSheepPosition[0]--
+  }
+  if (newSheepPosition[0] < 0 || newSheepPosition[0] > mapSize - 1 || newSheepPosition[1] < 0 || newSheepPosition[1] > mapSize - 1) removeSheep(i)
+  else if (sheepHealths[i] == 0) {
+    killSheep(i)
+    aSheepDied = true
+  }
+  else {
+    if (map[sheeps[i][0]][sheeps[i][1]] == 'dirt') sheepHealths[i]--
+    else if (map[sheeps[i][0]][sheeps[i][1]] == 'grass' && randomInteger(2) == 0) {
+      map[sheeps[i][0]][sheeps[i][1]] = 'dirt'
+      if (sheepHealths[i] < sheepStartingHealth) sheepHealths[i]++
+    }
+    else if (map[sheeps[i][0]][sheeps[i][1]] == 'river') {
+      killSheep(i)
+      aSheepDied = true
+      return
+    }
+    if (map[newSheepPosition[0]][newSheepPosition[1]] == 'river') {
+      var dontMoveSheep = true
+      sheepDirections[i] = randomInteger(4)
+    }
+    if (!dontMoveSheep) sheeps[i] = newSheepPosition
+  }
+}
+
+function removeSheep(i) {
+  sheeps.splice(i, 1)
+  sheepDirections.splice(i, 1)
+  sheepHealths.splice(i, 1)
+}
+
+function drawSheep(i) {
+  var greenAndBlueValue = sheepHealths[i] / sheepStartingHealth * 255
+  ctx.fillStyle = 'rgb(' + 255 + ',' + greenAndBlueValue + ',' + greenAndBlueValue + ')'
+  switch(sheepDirections[i]) {
+    case 0:
+      var headXOffset = 0
+      var headYOffset = -4
+      var bodyXOffset = 0
+      var bodyYOffset = 2
+      break
+    case 1:
+      headXOffset = 4
+      headYOffset = 0
+      bodyXOffset = -2
+      bodyYOffset = 0
+      break
+    case 2:
+      headXOffset = 0
+      headYOffset = 4
+      bodyXOffset = 0
+      bodyYOffset = -2
+      break
+    case 3:
+      headXOffset = -4
+      headYOffset = 0
+      bodyXOffset = 2
+      bodyYOffset = 0
+  }
+  ctx.beginPath()
+  ctx.arc(sheeps[i][0] * blockSize + blockSize / 2 + headXOffset, sheeps[i][1] * blockSize + blockSize / 2 + headYOffset, 3, 0, 2 * Math.PI)
+  ctx.stroke()
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(sheeps[i][0] * blockSize + blockSize / 2 + bodyXOffset, sheeps[i][1] * blockSize + blockSize / 2 + bodyYOffset, 5, 0, 2 * Math.PI)
+  ctx.stroke()
+  ctx.fill()
+}
+
+function killSheep(i) {
+  sheepKillsRemaining--
+  removeSheep(i)
+}
+
+function updateGrassRegrowth() {
+  var valueWhereGrassIsRegrown = 3
+  for (var column = 0; column < map.length; column++)
+    for (var row = 0; row < map[column].length; row++)
+      if (map[column][row] == 'dirt' && blockIsNextToRiver(column, row))
+        if (typeof grassRegrowth[column][row] == 'number') {
+          grassRegrowth[column][row]++
+          if (grassRegrowth[column][row] == valueWhereGrassIsRegrown) {
+            delete grassRegrowth[column][row]
+            map[column][row] = 'grass'
+          }
+        }
+        else grassRegrowth[column][row] = 0
+}
+
+function renderStats() {
+  ctx.fillStyle = 'white'
+  ctx.font = '16px monospace'
+  ctx.fillText('you must have ' + requiredSheeps + ' sheeps (current ' + sheeps.length + ')', 20, 30)
+}
+
+function renderCursor() {
+  if (window.mousePosition) {
+    ctx.fillStyle = '#aaaaaa'
+    ctx.fillRect(mousePosition[0] - 3, mousePosition[1] - 19, 6, 3)
+    ctx.fillRect(mousePosition[0] - 1, mousePosition[1] - 16, 2, 8)
+    ctx.beginPath()
+    ctx.moveTo(mousePosition[0] - 5, mousePosition[1] - 8)
+    ctx.lineTo(mousePosition[0] + 5, mousePosition[1] - 8)
+    ctx.lineTo(mousePosition[0] + 4, mousePosition[1] - 3)
+    ctx.lineTo(mousePosition[0], mousePosition[1])
+    ctx.lineTo(mousePosition[0] - 4, mousePosition[1] - 3)
+    ctx.fill()
+  }
+}
+
+function checkIfGameOver() {
+  if (sheeps.length < requiredSheeps) {
+    gameOverReason = 'you didn\'t have enough sheeps'
+    gameState = 'gameOver'
+    setTimeout(function() { location.reload() }, 3000)
+  }
+}
+
+function setupAudio() {
+  window.AudioContext = window.AudioContext || window.webkitAudioContext
+  if (!window.AudioContext) alert('this browser does not support AudioContext so the game will probably crash still love u though.')
+  audioContext = new AudioContext
+  var xhr1 = new XMLHttpRequest
+  xhr1.open('GET', 'dig.mp3')
+  xhr1.responseType = 'arraybuffer'
+  xhr1.onload = function() {
+    var xhr2 = new XMLHttpRequest
+    xhr2.open('GET', 'sheepdie.mp3')
+    xhr2.responseType = 'arraybuffer'
+    xhr2.onload = function() {
+      audioContext.decodeAudioData(xhr1.response, function(buffer1) {
+        audioContext.decodeAudioData(xhr2.response, function(buffer2) {
+          digSoundBuffer = buffer1
+          sheepDieSoundBuffer = buffer2
+          setupGame()
+        })
+      })
+    }
+    xhr2.send()
+  }
+  xhr1.send()
+}
+
+function playSound(buffer) {
+  var bufferSource = audioContext.createBufferSource()
+  bufferSource.buffer = buffer
+  bufferSource.connect(audioContext.destination)
+  bufferSource.start()
+}
+
+</script>
