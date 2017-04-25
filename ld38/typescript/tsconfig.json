@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "outFile": "../compiled-typescript.js",
+        "target": "es5"
+    },
+    "files": [
+        "javascript-declarations.ts",
+        "levels.ts",
+        "startScreenState.ts",
+        "playState.ts",
+        "finishedState.ts",
+        "GameObject.ts",
+        "Orbital.ts",
+        "Game.ts",
+        "Block.ts",
+        "Controls.ts",
+        "Player.ts",
+        "NextLevelTrigger.ts",
+        "Spikes.ts"
+    ]
+}
