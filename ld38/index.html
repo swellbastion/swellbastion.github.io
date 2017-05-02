@@ -4,6 +4,17 @@
     <head>
 
         <style>
+        html {
+            background: #aaa;
+        }
+        #game {
+            margin-bottom: 32px;
+        }
+        p {
+            font-family: monospace;
+            margin: 0 auto 8px auto;
+            width: 640px;
+        }
         canvas {
             display: block;
             margin: auto;
@@ -12,7 +23,11 @@
 
         <script src="node_modules/phaser/build/phaser.js"></script>
         <script src="node_modules/p2/build/p2.js"></script>
-        <script src="compiled-typescript.js"></script>
     </head>
-    <body></body>
+    <body>
+        <div id="game"></div>
+        <p>by <a href="https://twitter.com/jumpcarefully" target="_blank">@jumpcarefully</a></p>
+        <p>This game was created in 72 hours for ludum dare</p>
+        <script src="compiled-typescript.js"></script>
+    </body>
 </html>
